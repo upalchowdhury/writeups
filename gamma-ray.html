@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>ZK-Hack gamma-ray</title>
+    <!-- MathJax for LaTeX -->
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <!-- Highlight.js for Rust Code -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.5.0/styles/default.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.5.0/highlight.min.js"></script>
+    <script>hljs.highlightAll();</script>
+</head>
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        /* Use a modern font */
+    }
+
+    .highlighted-text {
+        background-color: rgba(255, 255, 255, 0.9);
+        /* Very light background, almost white */
+        color: #333;
+        /* Dark grey text for contrast */
+        padding: 10px;
+        /* Padding inside the highlight box */
+        margin: 20px 0;
+        /* Margin outside the highlight box */
+        border: 1px solid #aaa;
+        /* Light grey border for subtle contrast */
+        font-style: italic;
+    }
+
+    .flex-container {
+        display: flex;
+        justify-content: center;
+        /* Center horizontally */
+        align-items: center;
+        /* Center vertically */
+        height: 60vh;
+        /* Adjust the height as needed */
+    }
+
+    .text-container {
+        display: flex;
+        justify-content: left;
+        /* Center horizontally */
+        align-items: left;
+        /* Center vertically */
+        height: 30vh;
+        /* Adjust the height as needed */
+    }
+</style>
+
+
+<body>
+    <h2>Problem</h2>
+    <div class="highlighted-text">
+        <p>Bob was deeply inspired by the Zcash design [1] for private transactions and had some pretty cool ideas on
+            how to adapt
+            it for his requirements. He was also inspired by the Mina design for the lightest blockchain and wanted to
+            combine the
+            two. In order to achieve that, Bob used the MNT6753 cycle of curves to enable efficient infinite recursion,
+            and used
+            elliptic curve public keys to authorize spends. He released a first version of the system to the world and
+            Alice soon
+            announced she was able to double spend by creating two different nullifiers for the same key...</p>
+    </div>
+
+    <h2>Hints</h2>
+    <p>
+    <ul>
+        <li>Lemma 5.4.7 in the <a href="https://zips.z.cash/protocol/protocol.pdf">Zcash specs</a>
+
+            mentions Bob's reasoning on why to only use the x coordinate when storing the public keys -- "" </li>
+
+        <li>Note that the MNT curves are represented in Weierstrass from in the circuit, and use the fact that both
+            (x,y) and
+            (x,-y) are valid points for spending</li>
+
+
+        <li>Make sure you negate the y coordinate in the right scalar field, being the base field of MNT4</li>
+    </ul>
+
+    </p>
+    <h2>Elliptic Curve properties</h2>
+
+    <p>
+        Elliptic curves have the following formula,
+        \begin{equation}
+        y^2 \equiv x^3 + ax + b \pmod{p}
+        \end{equation}
+
+        where \(x\) and \(y\) to be elements of a finite field also known as the base field and \(p\) is a large prime
+        number.
+
+    <ul>
+        <li>Points in this curve are part of group such that if we take two points, and produce a
+            third point in the cure according to the rules of a group.</li>
+
+        <li>Closed under a binary operation meaning when two points from this set are added (binary ops) will result in
+            another point \((x,y)\).</li>
+
+        <li>Have an identity element.</li>
+
+        <li>Every element have an inverse.</li>
+
+    </ul>
+
+    <div class="flex-container">
+        <img src="ec.png" alt="Elliptic Curve with mod 23">
+    </div>
+    <div class="text-container">
+        <span class="latex">This curve is generated based on \(y^2 \equiv x^3 + 3 \pmod{23}\).
+            Its easily visible the nature of symmetric points for elliptic curve.</span>
+    </div>
+
+    A good place to review many cryptography concepts: <a
+        href="https://nmohnblatt.github.io/zk-jargon-decoder/foreword.html">zkJargon</a>
+    </p>
+
+
+    <p>
+        MNT cycle of curves are pairing-friendly curves and have property as, base and scalar field of one curve is the
+        scalar field and base field
+        respectively of the next curve. More on this <a href="https://arxiv.org/pdf/1803.02067.pdf">MNT Cycle of
+            Curves</a>
+    </p>
+
+
+    <h2>Arkworks primer</h2>
+    <p>
+        <a href="https://www.youtube.com/watch?v=Bz2KN_h3VKM&t=90s">Arkworks</a> is one of the popular ecosystem of
+        libraries based in rust for developing zkSNARKs. It has common set of traits and <a
+            href="https://github.com/arkworks-rs/algebra/blob/master/ec/README.md"> apis</a> to work with different
+        primitivs (ecs,ffs,hash) without writting from scratch.
+        Since its written in rust, its important to understand how rust works in terms of designing libraries. Some of
+        the unique design pattern of rust depends on it's traits and access to data. In the
+        <a href="https://github.com/ZK-Hack/puzzle-gamma-ray">puzzle code</a> you can see code like,
+    <pre><code class="rust">
+    type LeafH = poseidon::CRH<ConstraintF>;
+    let nullifier_hack = <LeafH as CRHScheme>::evaluate(&leaf_crh_params, vec![secret_hack]).unwrap();
+    </code></pre>
+
+    <code>LeafH as CRHScheme</LeafH></code> read as type as trait, meaning <code>LeafH</code> type will use the
+    <code>evaluate</code> function that is under <code></code>CRHScheme trait. You might ask why not just use
+    <code></code>LeafH::evaluate(). The reason is to use fully qualified syntax to resolve to
+    the intended method. <code>LeafH</code> might have used other traits that have funtion or type name
+    <code>evaluate</code>. A good analogy is when for site's access url if you use fully qualified domain name (FQDN)
+    chances are you are hitting the correct url.
+
+
+    </p>
+
+
+
+    <h2>Solution</h2>
+    <p> The lemma 5.4.7 of zcash paper proofs the properties of points on an elliptic curve, specifically within the
+        context of a subgroup \(J(r)\) of prime order such
+        that for a given point \(P=(u,v)\) in the subgroup \(J(r)\), the point with coordinates \((u,−v)\) does not
+        belong to \(J(r)\).
+        The proof leverages the properties of elliptic curves and the behavior of points under the "doubling" operation.
+        While in MNT curve it uses <code>Weierstrass</code> form meaning both \((x,y)\) and \((x,-y)\) are valid points
+        in the curve group.
+        Since Bob uses <code>MNT6753</code> cycle of curves for key generation, both both \((x,y)\) and \((x,-y)\) are
+        valid points in the group. Additonally MNT6753 are cycle of curves which have the property of base field of one
+        curve being the
+        scalar field of the next. So we used base field of MNT6 curve which is the scalar field of MNT4 curve.
+    </p>
+    <p> Public key generation process using elliptic curve is as follows,
+
+        \(pubk = kG\) where \(k\) is a scalar in the scalar field and \(G\) is the generator point of the particular
+        elliptic curve group.</p>
+
+    <p>
+        By subtracting the original scalar (secret key) from the curve order often works to find another scalar that,
+        when multiplied
+        with the
+        generator of an elliptic curve, produces a point with the same x-coordinate as the original scalar does. This is
+        due to
+        the properties of elliptic curves over finite fields, particularly the symmetry about the x-axis</p>
+
+
+    <p> For a given elliptic curve, let's denote
+    <ul>
+        <li>The curve order as \(n\)</li>
+        <li>The original scalar as \(k\)</li>
+        <li>The generator point of the curve as \(G\)</li>
+    </ul>
+
+    The point obtained by multiplying the generator
+    \(G\) by the scalar
+
+    \(k\) is denoted as \(kG=(x,y)\). Due to the symmetric nature of elliptic curves, the point
+
+    \((x,−y)\) is also on the curve. This point can be denoted as \((nG−kG)\) because:
+    </p>
+
+
+
+    <p>
+    <ol>
+        <li>The order of the curve \(n\) is the total number of points on the curve.</li>
+        <li>Multiplying the generator point \(G\) by the curve order n yields the identity element (point at infinity),
+            so
+
+            \(nG\) is effectively the same as the identity element.</li>
+
+        <li>Subtracting \(kG\) from the identity element is equivalent to adding the inverse of
+
+            \(kG\), which is \((x,−y)\).</li>
+
+
+        Therefore, the scalar \(n−k\) will yield the point \((x,−y)\) when multiplied by \(G\), having the same
+        x-coordinate but the negated y-coordinate.
+
+    </ol>
+
+    </p>
+
+
+
+    <h2>Rust Code</h2>
+    <pre><code class="rust">
+// Rust code example
+    // Getting the the modulus MNT6BigFr of MNT6BigFr curve which is the curve order.
+    let modulus = MNT6BigFr::MODULUS.clone();
+    let leaked_secret: MNT4BigFr = from_file("./puzzle-gamma-ray/leaked_secret.bin");
+    let big_int_leaked = leaked_secret.into_bigint();
+    
+    // Type casting to BigInteger768 form which will read in 12 elements as rust's capacity is 128bits
+    let int_value = BigInteger768::from(modulus);
+    let leaked_sec_big_rep = BigInteger768::from(leaked_secret);
+    
+    // making sure its in the MNT4BigFr format since the leaked_bigint is. 
+    let curve_order = MNT4BigFr::from(int_value);
+    let leaked_bigint = MNT4BigFr::from(leaked_sec_big_rep);
+    
+    // We obtain the same secret by subtracting from curve_order reasoning expalind above
+    let secret_hack = curve_order - leaked_bigint;
+    
+    let nullifier_hack =
+    <LeafH as CRHScheme>::evaluate(&leaf_crh_params, vec![secret_hack]).unwrap();
+
+    let g = affine::generator();
+    let a = <MNT4BigFr as PrimeField>::MODULUS;
+    let leaked_bigint = MNT4BigFr::from(leaked_sec_big_rep);
+    
+    // let neg = - (leaked_secret_bigint);
+    let pubk = g.mul_bigint(&leaked_secret_bigint);
+    
+    dbg!(&pubk);
+    dbg!(&pubk.y);
+    
+
+        // Testing further with randomly generated point (x,y) and then negating (x,-y) to confirm 
+
+    let e = affine::rand(&mut rng);
+    let e_affine = e;
+    let e_x = e_affine.x;
+    let e_y = e_affine.y;
+    let neg_e_y = - e_y;
+    let is_at_infinity = e_affine.is_zero();
+    let new_e = affine::new(e_x, e_y);
+    
+    let neg_new_e = affine::new(e_x,neg_e_y);
+    
+    let new_pub = new_e.mul_bigint(&leaked_secret_bigint);
+    
+    let neg_pub = neg_new_e.mul_bigint(&leaked_secret_bigint);
+    
+    dbg!(&new_pub.y);
+    dbg!(&neg_pub.y);
+    </code></pre>
+
+    <p>From the above code you can verify that both \(y\) and \(- y\) resulting in same \(x\) but this will generate
+        different nullifier since the \(-y\) value is different.</p>
+
+</body>
+
+</html>
